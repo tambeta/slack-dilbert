@@ -1,0 +1,3 @@
+beautifulsoup4~=4.7
+requests~=2.21
+slackclient~=2.21
