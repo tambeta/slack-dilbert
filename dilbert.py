@@ -3,6 +3,7 @@
 import configparser
 import contextlib
 import datetime
+import os
 import sys
 
 import bs4
@@ -43,18 +44,29 @@ def scrape_comic_url(html):
     raise LookupError("Could not look up the comic image tag")
 
 def guard_against_duplicate():
+    
+    """ Guard against duplicate posting on a given date. Also checks for
+    guard file existence, readability and writability - all are
+    required.
+    """
+    
     post_date = None
     today = str(datetime.date.today())
 
-    with contextlib.suppress(FileNotFoundError):
-        with open(GUARD_FN, "r") as f:
-            post_date = f.read().strip()
+    if not os.access(GUARD_FN, os.F_OK):
+        err("Guard file {} not found: create manually for safety", GUARD_FN)
+    if not os.access(GUARD_FN, os.R_OK | os.W_OK):
+        err("Guard file {} is not readable or writable", GUARD_FN)
+
+    with open(GUARD_FN, "r") as f:
+        post_date = f.read().strip()
 
     if post_date == today:
         err("Already posted to Slack today: refusing to post again before tomorrow")
 
+def write_guard_file():
     with open(GUARD_FN, "w") as f:
-        print(today, file=f)
+        print(datetime.date.today(), file=f)
 
 def get_slack_webhook_url():
 
@@ -66,7 +78,7 @@ def get_slack_webhook_url():
     try:
         return config["slack"]["webhook_url"]
     except KeyError:
-        err("Slack webhook URL not configured in {}. See documentation for details.", CONFIG_FN)
+        err("Slack webhook URL not configured in {} - see documentation for details", CONFIG_FN)
 
 def post_to_slack(url):
     webhook_url = get_slack_webhook_url()
@@ -79,10 +91,12 @@ def err(msg, *args):
     raise SystemExit(1)
 
 def main():
+    guard_against_duplicate()
+    
     html = fetch_comic_page()
     url = scrape_comic_url(html)
 
-    guard_against_duplicate()
     post_to_slack(url)
+    write_guard_file()
 
 main()
