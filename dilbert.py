@@ -4,6 +4,7 @@ import configparser
 import contextlib
 import datetime
 import os
+import re
 import sys
 
 import bs4
@@ -12,7 +13,7 @@ import xdg
 
 CONFIG_FN = xdg.XDG_CONFIG_HOME / "dilbertrc"
 GUARD_FN = xdg.XDG_CACHE_HOME / "dilbertts"
-COMIC_PAGE_URL = "https://www.postimees.ee/comics"
+COMIC_PAGE_URL = "https://leht.postimees.ee/comics"
 COMIC_NAME = "Dilbert"
 USER_AGENT = "dilbert/0.1"
 
@@ -39,17 +40,20 @@ def scrape_comic_url(html):
     with contextlib.suppress(AttributeError):
         for el in dilbert_title.next_siblings:
             if el.name == "img" and "comics-item__img" in el["class"]:
-                return el["src"]
+                src = el["src"]
+                m = re.search(r"(?<!http).*(http.?\:\/\/\S+$)", src)
+
+                return m[1] if m and m.lastindex == 1 else src
 
     raise LookupError("Could not look up the comic image tag")
 
 def guard_against_duplicate():
-    
+
     """ Guard against duplicate posting on a given date. Also checks for
     guard file existence, readability and writability - all are
     required.
     """
-    
+
     post_date = None
     today = str(datetime.date.today())
 
@@ -92,7 +96,7 @@ def err(msg, *args):
 
 def main():
     guard_against_duplicate()
-    
+
     html = fetch_comic_page()
     url = scrape_comic_url(html)
 
