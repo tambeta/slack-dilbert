@@ -31,8 +31,8 @@ remove or change `/root/.cache/dilbertts` in the container to enable posting
 immediately. Example:
 
 ```
-docker build --build-arg webhook_url=$SLACK_WEBHOOK_URL -t dilbert
-docker run voog/dilbert /opt/dilbert/dilbert.py
+docker build --build-arg webhook_url=$SLACK_WEBHOOK_URL -t dilbert .
+docker run dilbert /opt/dilbert/dilbert.py
 ```
 
 ## Configuration
