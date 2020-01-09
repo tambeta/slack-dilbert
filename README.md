@@ -8,7 +8,9 @@ than once on a given date.
 
 ## Installation
 
-The recommended method to install the application is using [Python
+### Python Virtual Environment
+
+The easiest method to install the application is using [Python
 virtualenvs](https://docs.python.org/3/tutorial/venv.html):
 
 ```
@@ -18,6 +20,19 @@ $ virtualenv3 venv
 $ source venv/bin/activate
 $ pip install -r requirements.txt
 $ ./dilbert.py
+```
+
+### Docker
+
+A `Dockerfile` is provided for simple deployment via Docker. The build
+requires the `webhook_url` argument (Slack incoming webhook, see below). To
+avoid duplicates, the build sets the guard timestamp to the current date -
+remove or change `/root/.cache/dilbertts` in the container to enable posting
+immediately. Example:
+
+```
+docker build --build-arg webhook_url=$SLACK_WEBHOOK_URL -t dilbert
+docker run voog/dilbert /opt/dilbert/dilbert.py
 ```
 
 ## Configuration
