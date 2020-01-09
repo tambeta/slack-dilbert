@@ -24,15 +24,13 @@ $ ./dilbert.py
 
 ### Docker
 
-A `Dockerfile` is provided for simple deployment via Docker. The build
-requires the `webhook_url` argument (Slack incoming webhook, see below). To
-avoid duplicates, the build sets the guard timestamp to the current date -
-remove or change `/root/.cache/dilbertts` in the container to enable posting
-immediately. Example:
+A `Dockerfile` is provided for simple deployment via Docker. Mount the config
+and cache (for the guard file) directories from the host. Example:
 
 ```
-docker build --build-arg webhook_url=$SLACK_WEBHOOK_URL -t dilbert .
-docker run dilbert /opt/dilbert/dilbert.py
+docker build -t dilbert .
+docker run --rm -v $(pwd)/config:/root/.config -v $(pwd)/cache:/root/.cache \
+    dilbert /opt/dilbert/dilbert.py
 ```
 
 ## Configuration
