@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import collections
 import configparser
 import contextlib
 import datetime
@@ -13,11 +14,13 @@ import xdg
 
 CONFIG_FN = xdg.XDG_CONFIG_HOME / "dilbertrc"
 GUARD_FN = xdg.XDG_CACHE_HOME / "dilbertts"
-COMIC_PAGE_URL = "https://leht.postimees.ee/comics"
+COMIC_PAGE_URL = "https://dilbert.com"
 COMIC_NAME = "Dilbert"
 USER_AGENT = "dilbert/0.1"
 
 
+
+Comic = collections.namedtuple("Comic", ["url", "title"])
 
 def fetch_comic_page():
 
@@ -30,23 +33,18 @@ def fetch_comic_page():
 
     return response.text
 
-def scrape_comic_url(html):
+def scrape_comic(html):
 
     """ Scrape and return the comic image URL given a HTML string. """
-
-    soup = bs4.BeautifulSoup(html, "html.parser")
-    dilbert_title = soup.find(class_="comics-item__name", string=COMIC_NAME)
-
-    with contextlib.suppress(AttributeError):
-        for el in dilbert_title.next_siblings:
-            if el.name == "img" and "comics-item__img" in el["class"]:
-                src = el["src"]
-                m = re.search(r"(?<!http).*(http.?\:\/\/\S+$)", src)
-
-                return m[1] if m and m.lastindex == 1 else src
-
-    raise LookupError("Could not look up the comic image tag")
-
+    
+    soup = bs4.BeautifulSoup(html, "html.parser")    
+    img = soup.find("img", class_="img-comic")
+    
+    if not img:
+        raise LookupError("Could not look up the comic image tag")
+    
+    return Comic(img['src'], re.sub(r"\s*-[^-]*$", "", img['alt']))
+    
 def guard_against_duplicate():
 
     """ Guard against duplicate posting on a given date. Also checks for
@@ -84,9 +82,11 @@ def get_slack_webhook_url():
     except KeyError:
         err("Slack webhook URL not configured in {} - see documentation for details", CONFIG_FN)
 
-def post_to_slack(url):
-    webhook_url = get_slack_webhook_url()
-    response = requests.post(webhook_url, json=dict(text=url))
+def post_to_slack(comic):
+    webhook_url = get_slack_webhook_url()    
+    title = dict(type="plain_text", text=comic.title, emoji=True)
+    block = dict(type="image", image_url=comic.url, title=title, alt_text=comic.title)    
+    response = requests.post(webhook_url, json=dict(blocks=[block]))
 
     response.raise_for_status()
 
@@ -98,9 +98,9 @@ def main():
     guard_against_duplicate()
 
     html = fetch_comic_page()
-    url = scrape_comic_url(html)
+    comic = scrape_comic(html)
 
-    post_to_slack(url)
+    post_to_slack(comic)
     write_guard_file()
 
 main()

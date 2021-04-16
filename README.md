@@ -1,10 +1,10 @@
 
 # Post the daily Dilbert to Slack
 
-A simple Python script to scrape the Dilbert strip from the Estonian daily
-newspaper [Postimees](https://www.postimees.ee/comics) and post it to the
-configured [Slack](https://slack.com/) channel. Guards against posting more
-than once on a given date.
+A simple Python script to scrape the Dilbert strip from
+[dilbert.com](https://dilbert.com) and post it to the configured
+[Slack](https://slack.com/) channel. Guards against posting more than once on a
+given date.
 
 ## Installation
 
