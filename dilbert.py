@@ -83,12 +83,11 @@ def get_slack_webhook_url():
         err("Slack webhook URL not configured in {} - see documentation for details", CONFIG_FN)
 
 def post_to_slack(comic):
-    webhook_url = get_slack_webhook_url()    
-    title = dict(type="plain_text", text=comic.title, emoji=True)
-    block = dict(type="image", image_url=comic.url, title=title, alt_text=comic.title)    
-    response = requests.post(webhook_url, json=dict(blocks=[block]))
-
-    response.raise_for_status()
+    webhook_url = get_slack_webhook_url()
+    alt_text = "Dilbert {}".format(datetime.date.today())
+    block = dict(type="image", image_url=comic.url, alt_text=alt_text)
+    
+    requests.post(webhook_url, json=dict(blocks=[block])).raise_for_status()
 
 def err(msg, *args):
     print(msg.format(*args), file=sys.stderr)
