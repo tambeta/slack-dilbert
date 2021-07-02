@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+HOST=$1
+IMAGE_NAME=$2
+BUILD_DIR="/tmp/dilbert-slack-$(date +%s)"
+
+function run_remotely {
+    ssh $HOST $@
+}
+
+function usage {
+    echo -e "Usage:\n\n$0 host_name image_name" >&2
+    exit 1
+}
+
+[[ -z "$HOST" || -z "$IMAGE_NAME" ]] && usage
+
+cd $(dirname $0)
+
+rsync -rvz --exclude-from=.gitignore --exclude=.git . $HOST:$BUILD_DIR/ \
+    || exit 1
+run_remotely sudo docker build -t "$IMAGE_NAME" "$BUILD_DIR" \
+    || exit 1
+egrep -q '^/tmp/.' <<<"$BUILD_DIR" && run_remotely rm -frv "$BUILD_DIR"
+

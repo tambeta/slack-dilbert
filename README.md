@@ -28,9 +28,16 @@ A `Dockerfile` is provided for simple deployment via Docker. Mount the config
 and cache (for the guard file) directories from the host. Example:
 
 ```
-docker build -t dilbert .
-docker run --rm -v $(pwd)/config:/root/.config -v $(pwd)/cache:/root/.cache \
+$ docker build -t dilbert .
+$ docker run --rm -v $(pwd)/config:/root/.config -v $(pwd)/cache:/root/.cache \
     dilbert /opt/dilbert/dilbert.py
+```
+
+Building a fresh image on a remote host is encapsulated in the `deploy` script,
+pass the host name as its first argument and the image name as the second:
+
+```
+$ ./deploy my.host.com dilbert
 ```
 
 ## Configuration
