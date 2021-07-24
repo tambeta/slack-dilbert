@@ -1,1 +1,3 @@
+*.geany
+__pycache__
 venv

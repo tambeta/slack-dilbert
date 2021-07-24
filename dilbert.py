@@ -1,105 +1,140 @@
 #!/usr/bin/env python3
 
-import collections
+import argparse
 import configparser
-import contextlib
-import datetime
-import os
+import json
+import logging
 import re
 import sys
+import traceback
 
-import bs4
 import requests
-import xdg
 
-CONFIG_FN = xdg.XDG_CONFIG_HOME / "dilbertrc"
-GUARD_FN = xdg.XDG_CACHE_HOME / "dilbertts"
-COMIC_PAGE_URL = "https://dilbert.com"
-COMIC_NAME = "Dilbert"
-USER_AGENT = "dilbert/0.1"
+from lib.configloader import config
+from lib.logging import make_log_record
+from lib.provider import Provider
+from lib.guard import Guard
+from lib.util import AllowException
 
-
-
-Comic = collections.namedtuple("Comic", ["url", "title"])
-
-def fetch_comic_page():
-
-    """ Fetch the daily comic URL and return the raw HTML string. """
-
-    response = requests.get(COMIC_PAGE_URL, headers={"User-Agent": USER_AGENT})
-
-    if not response.ok:
-      response.raise_for_status()
-
-    return response.text
-
-def scrape_comic(html):
-
-    """ Scrape and return the comic image URL given a HTML string. """
+def invoke_provider(provider, guard):
     
-    soup = bs4.BeautifulSoup(html, "html.parser")    
-    img = soup.find("img", class_="img-comic")
+    """ Fetch latest resource of the given provider and post if fresh. """
+
+    resource = provider.fetch_latest_resource()
     
-    if not img:
-        raise LookupError("Could not look up the comic image tag")
+    if guard.is_resource_fresh(provider, resource):
+        logging.info(f"Latest resource for \"{provider.id}\" is fresh ({resource.id}), posting")
+        
+        post_to_slack(resource)
+        guard.write_id(provider, resource)
+    else:
+        logging.info(f"Latest resource for \"{provider.id}\" is stale ({resource.id})")
     
-    return Comic(img['src'], re.sub(r"\s*-[^-]*$", "", img['alt']))
+
+def post_to_slack(resource):
+    webhook_url = get_slack_webhook_url()
+    block = dict(type="image", image_url=resource.url, alt_text=resource.alt_text)
     
-def guard_against_duplicate():
-
-    """ Guard against duplicate posting on a given date. Also checks for
-    guard file existence, readability and writability - all are
-    required.
-    """
-
-    post_date = None
-    today = str(datetime.date.today())
-
-    if not os.access(GUARD_FN, os.F_OK):
-        err("Guard file {} not found: create manually for safety", GUARD_FN)
-    if not os.access(GUARD_FN, os.R_OK | os.W_OK):
-        err("Guard file {} is not readable or writable", GUARD_FN)
-
-    with open(GUARD_FN, "r") as f:
-        post_date = f.read().strip()
-
-    if post_date == today:
-        err("Already posted to Slack today: refusing to post again before tomorrow")
-
-def write_guard_file():
-    with open(GUARD_FN, "w") as f:
-        print(datetime.date.today(), file=f)
-
+    if (resource.title):
+        block.update(dict(
+            title=dict(
+                type="plain_text",
+                text=resource.title
+            )
+        ))
+    
+    requests.post(webhook_url, json=dict(blocks=[block])).raise_for_status()
+    
 def get_slack_webhook_url():
 
     """ Read the Slack integration URL from $XDG_CONFIG_HOME/dilbertrc. """
 
-    config = configparser.ConfigParser()
-    config.read(CONFIG_FN)
+    config_fn = config.user_config_fn
+    user_config = configparser.ConfigParser()
+    
+    user_config.read(config_fn)
 
     try:
-        return config["slack"]["webhook_url"]
+        return user_config["slack"]["webhook_url"]
     except KeyError:
-        err("Slack webhook URL not configured in {} - see documentation for details", CONFIG_FN)
+        err(f"Slack webhook URL not configured in {config_fn} - see documentation for details")
 
-def post_to_slack(comic):
-    webhook_url = get_slack_webhook_url()
-    alt_text = "Dilbert {}".format(datetime.date.today())
-    block = dict(type="image", image_url=comic.url, alt_text=alt_text)
+def parse_command_line():
+    parser = argparse.ArgumentParser(
+        description="Comicbot: post comics to Slack")
+
+    parser.add_argument(
+        "-l", "--loglevel", default=config.log_level, type=str,
+        help=f"Log level, {config.log_level} by default"
+    )
+
+    return parser.parse_args()
     
-    requests.post(webhook_url, json=dict(blocks=[block])).raise_for_status()
+def setup_logging(level):
+    logging.setLogRecordFactory(make_log_record)
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)7s: %(prefix)s%(message)s",
+        level=getattr(logging, level.upper())
+    )
 
-def err(msg, *args):
-    print(msg.format(*args), file=sys.stderr)
+def err(e):
+    log_error(e)
     raise SystemExit(1)
 
+def log_error(e):
+    logging.error(re.sub(r"(^'|'$)", "", str(e)))
+    
+    if isinstance(e, Exception):
+        log_traceback(e)
+                
+        if isinstance(e, requests.exceptions.HTTPError):
+            log_http_error(e)
+
+def log_traceback(e):
+    tb = e.__traceback__
+    summary = traceback.extract_tb(tb)
+    
+    for line in summary.format():
+        for section in filter(lambda x: x, line.split("\n")):
+            logging.debug(re.sub(r"^\s{,2}", "¦ ", section))
+            
+def log_http_error(e):
+    try:
+        rq_body = json.dumps(json.loads(e.request.body), indent=2)
+    except:
+        rq_body = "(no request body available or not JSON)"
+
+    try:
+        resp_body = e.response.text
+    except:
+        resp_body = "(no response body available)"
+
+    logging.debug("Request body follows:")
+    
+    for line in rq_body.split("\n"):
+        logging.debug(f"> {line}") 
+        
+    logging.debug("Response body follows:")
+    
+    for line in resp_body.split("\n"):
+        logging.debug(f"< {line}") 
+
 def main():
-    guard_against_duplicate()
+    args = parse_command_line()
+    
+    setup_logging(args.loglevel)
+    
+    guard = Guard()
+    
+    for ConcreteProvider in Provider.all_providers:
+        logging.info(f"Invoking provider \"{ConcreteProvider.id}\"")
 
-    html = fetch_comic_page()
-    comic = scrape_comic(html)
+        try:
+            invoke_provider(ConcreteProvider(), guard)
+        except Exception as e:
+            log_error(e)
 
-    post_to_slack(comic)
-    write_guard_file()
-
-main()
+try:
+    main()
+except Exception as e:
+    log_error(e)
