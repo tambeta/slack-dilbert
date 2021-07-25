@@ -5,22 +5,26 @@ import re
 
 from abc import ABC, abstractmethod
 
-from .util import staticproperty
-
 class Provider(ABC):
     
     """ An abstract class to be implemented by a concrete Provider. """
     
-    @staticproperty
-    def all_providers():
+    @staticmethod
+    def get_providers(ids=None):
         
-        """ Locate all provider classes and return these. """
+        """ Locate all provider classes and return these. Pass a list of IDs to
+        limit the set of returned providers.
+        """
         
         all_providers = []
-        provider_filter = lambda m: inspect.isclass(m) and re.search(r"\wProvider$", m.__name__)        
         package = importlib.import_module("lib.providers")
         members = inspect.getmembers(package)        
         paths = next(v for v in members if v[0] == "__path__")[1]
+        
+        def provider_filter(m):
+            return inspect.isclass(m) \
+                and re.search(r"\wProvider$", m.__name__) \
+                and (not ids or m.id in ids)
         
         for path in paths:
             for filename in glob.glob(f"{path}/*.py"):

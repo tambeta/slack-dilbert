@@ -67,6 +67,9 @@ def parse_command_line():
         "-l", "--loglevel", default=config.log_level, type=str,
         help=f"Log level, {config.log_level} by default"
     )
+    parser.add_argument(
+        "-p", "--providers", type=str, help="Comma-separated list of provider IDs to invoke"
+    )
 
     return parser.parse_args()
     
@@ -126,7 +129,7 @@ def main():
     
     guard = Guard()
     
-    for ConcreteProvider in Provider.all_providers:
+    for ConcreteProvider in Provider.get_providers(args.providers):
         logging.info(f"Invoking provider \"{ConcreteProvider.id}\"")
 
         try:
