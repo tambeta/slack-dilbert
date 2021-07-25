@@ -41,7 +41,7 @@ def post_to_slack(resource):
         block.update(dict(
             title=dict(
                 type="plain_text",
-                text=resource.title
+                text=f"{resource.provider.fullname} — {resource.title}"
             )
         ))
     

@@ -50,7 +50,16 @@ class Provider(ABC):
         """
         
         return re.sub(r"Provider$", "", cls.__name__).lower()
+    
+    @property
+    @staticmethod
+    @abstractmethod
+    def fullname():
         
+        """ A human-readable full name identifying the resource. """
+        
+        pass
+    
     @abstractmethod
     def fetch_latest_resource():
         

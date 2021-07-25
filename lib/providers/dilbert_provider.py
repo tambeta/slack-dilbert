@@ -6,6 +6,8 @@ from lib.resource import Resource
 class DilbertProvider(Provider):
     COMIC_PAGE_URL = "https://dilbert.com"
     
+    fullname = "Dilbert"
+    
     def fetch_latest_resource(self):
         return self._scrape_comic(self._fetch_soup(self.COMIC_PAGE_URL))
 
@@ -21,4 +23,4 @@ class DilbertProvider(Provider):
         _id = re.search(r"/([\d-]+)$", anchor["href"])[1]
         title = re.sub(r"\s*-[^-]*$", "", img["alt"])
         
-        return Resource(id=_id, url=img["src"], title=title, alt_text=title)
+        return Resource(provider=self, id=_id, url=img["src"], title=title, alt_text=title)

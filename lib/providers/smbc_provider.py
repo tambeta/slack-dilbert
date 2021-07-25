@@ -7,6 +7,8 @@ from lib.resource import Resource
 class SMBCProvider(Provider):
     COMIC_PAGE_URL = "https://www.smbc-comics.com/"
     
+    fullname = "Saturday Morning Breakfast Cereal"
+    
     def fetch_latest_resource(self):
         return self._scrape_comic(self._fetch_soup(self.COMIC_PAGE_URL))
 
@@ -19,4 +21,4 @@ class SMBCProvider(Provider):
         title = re.split(r"[-–—]", metadata["name"])[1].strip()
         alt_text = soup.find("img", src=url)["title"]
         
-        return Resource(id=_id, url=url, title=title, alt_text=alt_text)
+        return Resource(provider=self, id=_id, url=url, title=title, alt_text=alt_text)
