@@ -91,7 +91,7 @@ def err(e):
     raise SystemExit(1)
 
 def log_error(e):
-    logging.error(re.sub(r"(^'|'$)", "", str(e)))
+    logging.error(e)
     
     if isinstance(e, Exception):
         log_traceback(e)

@@ -5,6 +5,10 @@ import re
 
 from abc import ABC, abstractmethod
 
+import bs4
+
+from lib.user_agent import UserAgent
+
 class Provider(ABC):
     
     """ An abstract class to be implemented by a concrete Provider. """
@@ -55,4 +59,15 @@ class Provider(ABC):
         string ID. A resource is only considered fresh if its ID is greater than
         (determined by string ordering) some previously observed resource.
         """
+
+    def _fetch_soup(self, url):
+
+        """ Fetch a HTML document and return it parsed into BeautifulSoup. """
         
+        ua = UserAgent()
+        response = ua.get(url)
+
+        if not response.ok:
+          response.raise_for_status()
+
+        return bs4.BeautifulSoup(response.text, "html.parser")    
