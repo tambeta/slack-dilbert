@@ -16,20 +16,22 @@ from lib.provider import Provider
 from lib.guard import Guard
 from lib.util import AllowException
 
-def invoke_provider(provider, guard):
+def invoke_provider(provider, guard, force=False):
     
     """ Fetch latest resource of the given provider and post if fresh. """
 
     resource = provider.fetch_latest_resource()
     
-    if guard.is_resource_fresh(provider, resource):
-        logging.info(f"Latest resource for \"{provider.id}\" is fresh ({resource.id}), posting")
+    if force or guard.is_resource_fresh(provider, resource):
+        if force:
+            logging.info(f"Posting latest resource for \"{provider.id}\" regardless of freshness")
+        else:
+            logging.info(f"Latest resource for \"{provider.id}\" is fresh ({resource.id}), posting")
         
         post_to_slack(resource)
         guard.write_id(provider, resource)
     else:
         logging.info(f"Latest resource for \"{provider.id}\" is stale ({resource.id})")
-    
 
 def post_to_slack(resource):
     webhook_url = get_slack_webhook_url()
@@ -63,6 +65,10 @@ def parse_command_line():
     parser = argparse.ArgumentParser(
         description="Comicbot: post comics to Slack")
 
+    parser.add_argument(
+        "-f", "--force", action="store_true",
+        help="Force posting the resource(s), even if stale"
+    )
     parser.add_argument(
         "-l", "--loglevel", default=config.log_level, type=str,
         help=f"Log level, {config.log_level} by default"
@@ -133,7 +139,7 @@ def main():
         logging.info(f"Invoking provider \"{ConcreteProvider.id}\"")
 
         try:
-            invoke_provider(ConcreteProvider(), guard)
+            invoke_provider(ConcreteProvider(), guard, force=args.force)
         except Exception as e:
             log_error(e)
 
