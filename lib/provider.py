@@ -71,12 +71,19 @@ class Provider(ABC):
 
     def _fetch_soup(self, url):
 
-        """ Fetch a HTML document and return it parsed into BeautifulSoup. """
+        """ Fetch a HTML document and return it parsed into BeautifulSoup. As a
+        special case, support `file` schema URLs.
+        """
         
-        ua = UserAgent()
-        response = ua.get(url)
+        if url.startswith("file:"):
+            with open(re.sub(r"^file://", "", url)) as f:
+                html = f.read()
+        else:
+            ua = UserAgent()
+            response = ua.get(url)
+            html = response.text
 
-        if not response.ok:
-          response.raise_for_status()
+            if not response.ok:
+              response.raise_for_status()
 
-        return bs4.BeautifulSoup(response.text, "html.parser")    
+        return bs4.BeautifulSoup(html, "html.parser")    
