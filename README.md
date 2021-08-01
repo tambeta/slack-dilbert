@@ -1,10 +1,13 @@
 
-# Post the daily Dilbert to Slack
+# Post comic strips to Slack
 
-A simple Python script to scrape the Dilbert strip from
-[dilbert.com](https://dilbert.com) and post it to the configured
-[Slack](https://slack.com/) channel. Guards against posting more than once on a
-given date.
+A Python application to scrape comic strips (or any pictorial resource) from
+the web and and post it to the configured [Slack](https://slack.com/) channel.
+Guards against posting a stale resource more than once. Resource providers for
+[Dilbert](https://dilbert.com/), [Perry Bible
+Fellowship](https://pbfcomics.com/), [Saturday Morning Breakfast
+Cereal](https://www.smbc-comics.com/) and [XKCD](https://xkcd.com) have been
+implemented.
 
 ## Installation
 
@@ -57,7 +60,19 @@ $ ./deploy my.host.com dilbert
   webhook_url = YOUR_WEBHOOK_URL
   ```
 
+* The guard file storing latest posted resource IDs is
+  `${XDG_CACHE_HOME}/dilbertts`. `XDG_CACHE_HOME` is `${HOME}/.cache` by
+  default on Linux-based systems. The file must initially contain a section for
+  every provider you intend to run, for example:
+
+  ```
+  [dilbert]
+  [pbf]
+  [smbc]
+  [xkcd]
+  ```
+
 * Run `dilbert.py` manually, from a cron job or via another method of your
   preference. The daily strip should be posted to your configured Slack
-  channel.
+  channel. See `dilbert.py --help` for available command line options.
 
